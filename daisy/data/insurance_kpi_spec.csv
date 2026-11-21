@@ -1,0 +1,10 @@
+kpi_name,kpi_numerator,kpi_denominator,kpi_dp,kpi_signif,kpi_divisor,kpi_prefix,kpi_suffix
+Avg Premium,total_premium,N,0,1,1,,
+Claim Frequency,total_claims,total_exposure,0,1,1,,
+Glass Frequency,glass_claims,total_exposure,0,1,1,,
+Theft Frequency,theft_claims,total_exposure,0,1,1,,
+Property Frequency,property_claims,total_exposure,0,1,1,,
+Avg Severity,total_incurred,total_claims,2,1,1,,
+Glass Severity,glass_incurred,glass_claims,2,1,1,,
+Theft Severity,theft_incurred,theft_claims,2,1,1,,
+Property Severity,property_incurred,property_claims,2,1,1,,

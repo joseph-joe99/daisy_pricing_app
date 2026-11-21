@@ -1,0 +1,17 @@
+filter
+--- DriverAge
+driver_age<25
+driver_age>=25
+
+--- Policy Type
+policy_type=='CC'
+policy_type=='COMP_E'
+
+--- Age & Policy Type
+driver_age<25 & policy_type=='CC'
+driver_age<25 & policy_type=='COMP_E'
+driver_age>=25 & policy_type=='CC'
+driver_age>=25 & policy_type=='COMP_E'
+
+--- Vehicle Brand
+vehicle_brand=='FORD'

@@ -1,0 +1,24 @@
+# insurance dataset GLM formula
+# Response = total_premium
+# Weight = N (equal weights per row)
+# Use Gamma or Quasipoisson objective
+
+# Patsy/Python formula terms. Use C(column) for categorical encoding, I(...) for
+# arithmetic expressions, * or : for interactions, and bs()/cr() for splines.
+I(np.clip(age_driving_licence, 0, 60)) +
+I(np.clip(driver_age, 18, 75)) +
+bs(np.clip(vehicle_age, 0, 50), df=3, lower_bound=0, upper_bound=50) +
+I(np.minimum(vehicle_value, 50000)) +
+I(np.maximum(vehicle_value, 50000)) +
+I(np.minimum(power_to_weight_ratio, 10)) +
+I(np.maximum(power_to_weight_ratio, 10)) +
+bonus_score +
+policy_type +
+policy_status +
+business_type +
+payment_frequency +
+fuel_type +
+municipality_type +
+circulation_area +
+I(np.isin(vehicle_brand, ['MINI']) * 1) +
+I(np.isin(vehicle_brand, ['AUDI', 'BMW', 'JAGUAR', 'LANDROVER', 'PORSCHE']) * 1)

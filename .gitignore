@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+py312/
+
+# Test and tool caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# macOS and editors
+.DS_Store
+__MACOSX/
+.vscode/
+.idea/
+
+# Secrets and local settings
+.env
+.env.*
+
+# Data: keep policy and claims data out of the repository
+# data/
+# *.parquet
+# *.csv.gz
+
+# Files the app writes: models, ratebooks, reports, bundles
+*.pkl
+*.xlsx
+*.zip
+model.txt
+daisy_gbm_bundle*/
+*_report.html
+
+# Logs
+*.log

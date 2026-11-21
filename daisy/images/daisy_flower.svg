@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="Daisy flower">
+  <g fill="#f7e9b0">
+    <ellipse cx="20" cy="9" rx="4.2" ry="7"/>
+    <ellipse cx="20" cy="9" rx="4.2" ry="7" transform="rotate(45 20 20)"/>
+    <ellipse cx="20" cy="9" rx="4.2" ry="7" transform="rotate(90 20 20)"/>
+    <ellipse cx="20" cy="9" rx="4.2" ry="7" transform="rotate(135 20 20)"/>
+    <ellipse cx="20" cy="9" rx="4.2" ry="7" transform="rotate(180 20 20)"/>
+    <ellipse cx="20" cy="9" rx="4.2" ry="7" transform="rotate(225 20 20)"/>
+    <ellipse cx="20" cy="9" rx="4.2" ry="7" transform="rotate(270 20 20)"/>
+    <ellipse cx="20" cy="9" rx="4.2" ry="7" transform="rotate(315 20 20)"/>
+  </g>
+  <circle cx="20" cy="20" r="5.1" fill="#e9a83b"/>
+  <circle cx="18.4" cy="18.4" r="1.2" fill="#fff4cf"/>
+</svg>

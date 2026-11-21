@@ -1,0 +1,11 @@
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+patsy>=1.0
+PyALE>=1.2.0
+openpyxl>=3.1
+shiny>=1.0
+shinywidgets>=0.3
+plotly>=5.24
+lightgbm>=4.0
+geopandas>=0.14      # Maps only

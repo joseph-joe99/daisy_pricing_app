@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daisy"
+version = "1.0.0"
+description = "Daisy: build and interpret GLMs and GBMs for insurance pricing with Shiny for Python"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = ["pandas>=2.0", "numpy>=1.24", "scipy>=1.10", "patsy>=1.0", "PyALE>=1.2.0", "openpyxl>=3.1",
+                "shiny>=1.0", "shinywidgets>=0.3", "plotly>=5.24", "lightgbm>=4.0"]
+
+[project.optional-dependencies]
+maps = ["geopandas>=0.14"]
+dev = ["pytest", "scikit-learn"]
+
+[tool.setuptools.packages.find]
+include = ["daisy*"]
+
+[tool.setuptools.package-data]
+daisy = ["data/*", "images/*"]
