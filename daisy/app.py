@@ -2069,12 +2069,15 @@ def make_app(
             )
         def _chart_settings_for(feature: str, own_banding):
             """(banding, minimum, maximum, bins) for a SHAP feature: the Charts settings when it is the feature chosen
-            in Charts, otherwise its own banding box with no minimum, maximum or bins."""
+            in Charts; otherwise its own banding box with the minimum, maximum and bins from its specification, as the
+            1-way chart uses for a feature not chosen in Charts."""
             if feature and feature == input.x_feature():
                 banding = (input.x_banding() or "").strip()
                 minimum, maximum, bins = _chart_limits()
                 return (banding if numeric_or_none(banding) is not None else "0"), minimum, maximum, bins
-            return (own_banding or "0"), None, None, None
+            applied = feature_treatment_spec(feat_df, feature) or {} if feature else {}
+            minimum, maximum = spec_chart_limits(feat_df, feature) if feature else (None, None)
+            return (own_banding or "0"), minimum, maximum, applied.get("bins")
 
         @render.ui
         def x_monotone_label():
@@ -2307,7 +2310,18 @@ def make_app(
                     shap_pairs = list(combinations(shap_features[: two_way_top()], 2))
                     extra_sections.append(
                         lambda mask, m=shap_model, n=shap_note, q=quantile, fs=shap_features, pr=shap_pairs: report.shap_section(
-                            full, m, fs, feat_df, weight(), mask, quantile=q, note=n, pairs=pr
+                            full,
+                            m,
+                            fs,
+                            feat_df,
+                            weight(),
+                            mask,
+                            quantile=q,
+                            note=n,
+                            pairs=pr,
+                            selected_feature=input.x_feature(),
+                            selected_banding=input.x_banding() or "0",
+                            selected_limits=_chart_limits(),
                         )
                     )
 
@@ -2391,9 +2405,15 @@ def make_app(
             f: str,
             current: str,
         ):
-            """Banding guess for a SHAP feature: from its values when numeric, otherwise 0."""
+            """Banding for a SHAP feature: its specification's banding when numeric (0 when it has bins), else a guess
+            from its values; 0 for a non-numeric feature."""
             s = d0[f]
-            return banding_guesser(s) if pd.api.types.is_numeric_dtype(s) else 0
+            if not pd.api.types.is_numeric_dtype(s) or pd.api.types.is_bool_dtype(s):
+                return 0
+            if (feature_treatment_spec(feat_df, f) or {}).get("bins"):
+                return 0
+            configured = numeric_or_none(feature_lookup(feat_df, f).get("banding"))
+            return configured if configured else banding_guesser(s)
 
         @reactive.effect
         @reactive.event(input.shap_f1)

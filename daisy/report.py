@@ -578,20 +578,39 @@ def shap_section(
     quantile: float = 0.05,
     note: str | None = None,
     pairs=None,
+    selected_feature: str | None = None,
+    selected_banding: str = "0",
+    selected_limits=None,
 ) -> dict:
     """SHAP relativities and stacked mean SHAP for each feature of a GBM, one entry per feature.
 
-    ``pairs`` is a list of (feature 1, feature 2): each adds a two-way SHAP heatmap, in a "Two-way" tab."""
+    ``pairs`` is a list of (feature 1, feature 2): each adds a two-way SHAP heatmap, in a "Two-way" tab.
+    ``selected_feature``, ``selected_banding`` and ``selected_limits`` are the Charts settings (banding, then
+    (minimum, maximum, bins)) for the selected feature; the others use their specification, as the 1-way charts do."""
     mask = np.asarray(rows_mask) == 1
     entries = []
     for index, feature in enumerate(features, start=1):
-        banding = _feature_banding(data, feature, feature_spec)
+        banding = _feature_banding(data, feature, feature_spec, selected_feature, selected_banding)
+        minimum, maximum, bins = _feature_limits(data, feature, feature_spec, selected_feature, selected_limits)
         try:
             label = feature_label(feature_spec, feature)
             flame = shap_flame_figure(
-                data, model, feature, weight, banding, mask, quantile=quantile, weight_label=weight, x_title=label
+                data,
+                model,
+                feature,
+                weight,
+                banding,
+                mask,
+                quantile=quantile,
+                weight_label=weight,
+                x_title=label,
+                minimum=minimum,
+                maximum=maximum,
+                bins=bins,
             )
-            stacked = stacked_shap_figure(data, model, feature, weight, banding, mask, x_title=label)
+            stacked = stacked_shap_figure(
+                data, model, feature, weight, banding, mask, x_title=label, minimum=minimum, maximum=maximum, bins=bins
+            )
         except Exception as error:
             entries.append(
                 {
@@ -631,11 +650,13 @@ def shap_section(
                     first,
                     second,
                     weight,
-                    str(_feature_banding(data, first, feature_spec)),
-                    str(_feature_banding(data, second, feature_spec)),
+                    str(_feature_banding(data, first, feature_spec, selected_feature, selected_banding)),
+                    str(_feature_banding(data, second, feature_spec, selected_feature, selected_banding)),
                     mask,
                     x_title=feature_label(feature_spec, first),
                     y_title=feature_label(feature_spec, second),
+                    limits1=_feature_limits(data, first, feature_spec, selected_feature, selected_limits),
+                    limits2=_feature_limits(data, second, feature_spec, selected_feature, selected_limits),
                 )
                 _style_export_figure(heatmap, feature_label(feature_spec, first), height=460)
                 two_way.append(
