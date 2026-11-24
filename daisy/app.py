@@ -47,6 +47,7 @@ from .gbm import (
     score_gbm,
 )
 from .glm import GLM_OBJECTIVES, build_glm, formula_from_import, formula_to_text
+from .filedialog import pick_file
 from .glm_builder import builder_ui, feature_chips
 from .ratebook import check_ratebook_link, tabulate_model, write_ratebook_excel
 from .scoring import (
@@ -1138,14 +1139,22 @@ def make_app(
                 ui.input_text(
                     "overlay_path", "Path to cleaned CSV (In-sample data)", placeholder="/path/to/insample_data.csv"
                 ),
-                ui.input_action_button("overlay_load", "Load data", class_="btn-primary"),
+                ui.div(
+                    ui.input_action_button("overlay_browse", "Browse…"),
+                    ui.input_action_button("overlay_load", "Load data", class_="btn-primary"),
+                    class_="d-flex gap-2 mb-2",
+                ),
                 ui.output_text("overlay_data_status"),
                 ui.input_text(
                     "overlay_test_path",
                     "Path to cleaned CSV (Out-of-sample test data)",
                     placeholder="/path/to/oos_test_data.csv",
                 ),
-                ui.input_action_button("overlay_test_load", "Load test data", class_="btn-primary"),
+                ui.div(
+                    ui.input_action_button("overlay_test_browse", "Browse…"),
+                    ui.input_action_button("overlay_test_load", "Load test data", class_="btn-primary"),
+                    class_="d-flex gap-2 mb-2",
+                ),
                 ui.output_text("overlay_test_status"),
                 ui.hr(),
                 ui.h6("2. Read Model"),
@@ -1250,7 +1259,11 @@ def make_app(
                 ui.input_text(
                     "score_path", "Path to cleaned CSV (unseen data)", placeholder="/path/to/unseen_data.csv"
                 ),
-                ui.input_action_button("score_load", "Load data", class_="btn-primary"),
+                ui.div(
+                    ui.input_action_button("score_browse", "Browse…"),
+                    ui.input_action_button("score_load", "Load data", class_="btn-primary"),
+                    class_="d-flex gap-2 mb-2",
+                ),
                 ui.output_text("score_data_status"),
                 ui.hr(),
                 ui.h6("2. Model"),
@@ -3315,6 +3328,18 @@ def make_app(
             return train, test
 
         @reactive.effect
+        @reactive.event(input.overlay_browse, ignore_init=True)
+        async def _overlay_browse_data():
+            """Pick the in-sample CSV with a file dialog and fill in its path."""
+            await _browse_csv_into("overlay_path", "Choose the in-sample CSV")
+
+        @reactive.effect
+        @reactive.event(input.overlay_test_browse, ignore_init=True)
+        async def _overlay_browse_test_data():
+            """Pick the out-of-sample test CSV with a file dialog and fill in its path."""
+            await _browse_csv_into("overlay_test_path", "Choose the out-of-sample test CSV")
+
+        @reactive.effect
         @reactive.event(input.overlay_test_load, ignore_init=True)
         async def _overlay_load_test_data():
             """Load the out-of-sample test CSV named on the Overlays tab."""
@@ -4222,6 +4247,21 @@ def make_app(
                 ui.update_radio_buttons("score_source", selected="app")
             elif count == 0 and current == "app":
                 ui.update_radio_buttons("score_source", selected="gbm_pkl")
+
+        async def _browse_csv_into(input_id: str, title: str):
+            """Open a file dialog on the host computer and put the chosen path in the text box ``input_id``.
+
+            The dialog blocks until it is closed, so it runs in a worker thread and other sessions keep responding.
+            """
+            path = await asyncio.to_thread(pick_file, title)
+            if path:
+                ui.update_text(input_id, value=path)
+
+        @reactive.effect
+        @reactive.event(input.score_browse, ignore_init=True)
+        async def _score_browse_data():
+            """Pick the scoring CSV with a file dialog and fill in its path."""
+            await _browse_csv_into("score_path", "Choose the unseen-data CSV")
 
         async def read_csv_path(path: str) -> pd.DataFrame:
             """Read a cleaned CSV in chunks, showing progress; raises if the file is empty or unreadable."""
