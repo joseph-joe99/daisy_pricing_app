@@ -26,6 +26,46 @@ def strip_comments(text: str) -> str:
     return re.sub(r"(?m)#.*$", "", text).strip()
 
 
+def formula_terms(text: str) -> list[str]:
+    """The terms of a formula: comments removed, then split at each ``+`` or new line outside brackets and quotes."""
+    text = strip_comments(text)
+    terms, buf, depth, quote = [], [], 0, None
+    for ch in text:
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "'\"":
+            quote = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif (ch == "+" or ch == "\n") and depth == 0:
+            terms.append("".join(buf))
+            buf = []
+            continue
+        buf.append(ch)
+    terms.append("".join(buf))
+    cleaned = [re.sub(r"\s*\n\s*", " ", t).strip() for t in terms]
+    return [t for t in cleaned if t]
+
+
+def formula_to_text(text: str) -> str:
+    """The formula as text: one term per line, each but the last ending in ``+`` (as in ``glm_formula.csv``)."""
+    return " +\n".join(formula_terms(text)) + "\n"
+
+
+def formula_from_import(text: str) -> str:
+    """The formula from imported text: one term per line (``+`` between terms is also allowed), ``#`` comments
+    removed. Returns the terms joined by `` + ``."""
+    terms = formula_terms(text)
+    if not terms:
+        raise ValueError("the file has no formula terms")
+    return " + ".join(terms)
+
+
 def term_variables(
     term: str,
     columns,
@@ -94,6 +134,8 @@ class Design:
                     match = re.match(r"\s*C\(\s*(?:Q\(['\"]([^'\"]+)['\"]\)|([A-Za-z_]\w*))", factor_name)
                     columns = [next(group for group in match.groups() if group)] if match else []
                 for column in columns:
+                    if column not in data:  # e.g. C(np.where(...)): the name inside is not a column
+                        continue
                     data[column] = pd.Categorical(data[column], categories=factor_info.categories, ordered=True)
         return data
 
@@ -478,6 +520,15 @@ class GLMModel:
             idx = [j for j, t in enumerate(self.design.term_of_column) if t == i]
             out[term] = centred[:, idx] @ beta[idx] if idx else np.zeros(len(X))
         return pd.DataFrame(out)
+
+    def term_importance(
+        self,
+        d: pd.DataFrame,
+    ) -> pd.Series:
+        """Mean |term contribution| x 100 for each model term, most important first. An interaction is its own term,
+        so it is not added into the importance of the features it uses."""
+        tc = self.term_contributions(d)
+        return tc.abs().mean().sort_values(ascending=False) * 100
 
     def feature_contributions(
         self,

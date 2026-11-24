@@ -1646,6 +1646,7 @@ def _lift_importance_models():
         feature_contributions=lambda frame: pd.DataFrame(
             {"glm_LP_age": np.full(len(frame), 0.2), "glm_LP_make": -np.full(len(frame), 0.05)}
         ),
+        term_importance=lambda frame: pd.Series({"age": 20.0, "make": 5.0}),
     )
     return data, gbm, glm
 

@@ -46,7 +46,8 @@ from .gbm import (
     prediction_performance_metrics,
     score_gbm,
 )
-from .glm import GLM_OBJECTIVES, build_glm
+from .glm import GLM_OBJECTIVES, build_glm, formula_from_import, formula_to_text
+from .glm_builder import builder_ui, feature_chips
 from .ratebook import check_ratebook_link, tabulate_model, write_ratebook_excel
 from .scoring import (
     iter_csv_chunks,
@@ -309,7 +310,12 @@ def _ranked_features(
     cached = _RANKING.get(id(model))
     if cached is None or cached[0] is not model:
         try:
-            order = report.importance_frame(data, model, family)["Feature"].astype(str).tolist()
+            if family == "glm":  # by feature: each feature's terms summed (the importance table lists terms)
+                contributions = model.feature_contributions(data.iloc[model.pred_rows])
+                mean_abs = contributions.abs().mean().sort_values(ascending=False)
+                order = [c.replace("glm_LP_", "") for c in mean_abs.index]
+            else:
+                order = report.importance_frame(data, model, family)["Feature"].astype(str).tolist()
         except Exception:
             order = []
         cached = (model, order)
@@ -1034,8 +1040,24 @@ def make_app(
                 class_="daisy-model-controls",
             ),
             ui.navset_card_tab(
+                ui.nav_panel("Builder", builder_ui()),
                 ui.nav_panel(
                     "Formula",
+                    ui.div(
+                        ui.tags.style(
+                            ".glm-formula-tools { flex-wrap: nowrap !important; }"
+                            ".glm-formula-tools .shiny-input-container { margin-bottom: 0; flex: 1 1 0; min-width: 0; }"
+                            ".glm-formula-tools .btn { white-space: nowrap; }"
+                        ),
+                        ui.input_file(
+                            "glm_formula_file",
+                            "Import (.txt)",
+                            accept=[".txt"],
+                            multiple=False,
+                        ),
+                        ui.download_button("glm_formula_export", "Export (.txt)", class_="mb-1"),
+                        class_="glm-formula-tools d-flex align-items-center gap-3 mb-2",
+                    ),
                     ui.input_text_area(
                         "glm_formula",
                         "GLM formula terms (Patsy/Python RHS: C(make), age * C(make), I(age ** 2), bs(age, df=4) ...)",
@@ -1045,7 +1067,17 @@ def make_app(
                     ),
                 ),
                 ui.nav_panel("Coefficients", ui.output_text("glm_stats"), ui.output_data_frame("glm_coefs")),
-                ui.nav_panel("Feature importance", ui.output_data_frame("glm_imp_table")),
+                ui.nav_panel(
+                    "Feature importance",
+                    ui.input_radio_buttons(
+                        "glm_imp_view",
+                        "Importance by",
+                        {"term": "Term", "feature": "Feature"},
+                        selected="term",
+                        inline=True,
+                    ),
+                    ui.output_data_frame("glm_imp_table"),
+                ),
                 ui.nav_panel(
                     "Lift Chart",
                     ui.input_select(
@@ -2549,6 +2581,20 @@ def make_app(
             return render.DataGrid(_show(column_summary(dfull())), height="650px")
 
         # ---------------- GLMs
+        @render.ui
+        def glm_builder_chips():
+            """The features the GLM builder offers: the modelling-valid features of the feature specification (the
+            same list the GBM defaults and the Non-modelled features use), without the response and weight."""
+            features = []
+            for c in _gbm_features_from_spec(feat_df, all_cols, response(), weight()):
+                s = d0[c]
+                if pd.api.types.is_numeric_dtype(s) and not pd.api.types.is_bool_dtype(s):
+                    features.append((c, feature_label(feat_df, c), "numeric"))
+                else:  # a categorical feature: its levels, for the reference and level pickers (first 300 shown)
+                    levels = sorted(pd.unique(s.dropna()), key=str)[:300]
+                    features.append((c, feature_label(feat_df, c), "categorical", levels))
+            return feature_chips(features)
+
         def _fit_glm(
             positive_only: bool,
         ):
@@ -2626,17 +2672,20 @@ def make_app(
 
         @render.data_frame
         def glm_imp_table():
-            """Feature importance of the chosen GLM: the mean absolute linear-predictor contribution, scaled by 100."""
+            """Importance of the chosen GLM: the mean absolute linear-predictor contribution, scaled by 100. By term (the
+            default), each term is its own row, so an interaction is shown separately. By feature, each feature's terms
+            are summed, so an interaction counts towards each feature it uses."""
             m = _current(glm_models, "glm_model")
-            fc = m.feature_contributions(d0.iloc[m.pred_rows])
-            imp = fc.abs().mean().sort_values(ascending=False) * 100
-            return render.DataGrid(
-                _show(
-                    pd.DataFrame(
-                        {"feature": [c.replace("glm_LP_", "") for c in imp.index], "mean |LP| x 100": imp.values}
-                    )
+            if input.glm_imp_view() == "feature":
+                fc = m.feature_contributions(d0.iloc[m.pred_rows])
+                imp = fc.abs().mean().sort_values(ascending=False) * 100
+                frame = pd.DataFrame(
+                    {"feature": [c.replace("glm_LP_", "") for c in imp.index], "mean |LP| x 100": imp.values}
                 )
-            )
+            else:
+                imp = m.term_importance(d0.iloc[m.pred_rows])
+                frame = pd.DataFrame({"term": imp.index, "mean |LP| x 100": imp.values})
+            return render.DataGrid(_show(frame))
 
         @render_widget
         def glm_lift_plot():
@@ -2674,6 +2723,13 @@ def make_app(
         @render.data_frame
         def glm_metrics_table():
             """Performance metrics of the chosen GLM for the current filter."""
+            model = _current(glm_models, "glm_model")
+            metrics = model_performance_metrics(d0, model, rows_mask=filt()["total"])
+            return render.DataGrid(_show(metrics), height="200px")
+
+        @render.data_frame
+        def glm_builder_metrics():
+            """The Builder's metrics: the same performance metrics as the Metrics tab, for the chosen GLM."""
             model = _current(glm_models, "glm_model")
             metrics = model_performance_metrics(d0, model, rows_mask=filt()["total"])
             return render.DataGrid(_show(metrics), height="200px")
@@ -2772,6 +2828,31 @@ def make_app(
                     t, str(Path(tmp) / "rb.xlsx"), glm.name, weight_basis=glm.weight_basis, weight=glm.weight
                 )
                 yield Path(path).read_bytes()
+
+        @render.download_button(filename="glm_formula.txt")
+        def glm_formula_export():
+            """Download the GLM formula as text: one term per line."""
+            yield formula_to_text(input.glm_formula() or "")
+
+        @reactive.effect
+        @reactive.event(input.glm_formula_file)
+        def _import_glm_formula():
+            """Load a formula from a text file (one term per line) into the Formula box."""
+            files = input.glm_formula_file()
+            if not files:
+                return
+            try:
+                text = Path(files[0]["datapath"]).read_text(encoding="utf-8-sig")
+                formula = formula_from_import(text)
+            except (ValueError, UnicodeDecodeError) as e:
+                ui.notification_show(f"Could not import the formula: {e}", type="warning")
+                return
+            ui.update_text_area("glm_formula", value=formula)
+            ui.notification_show(
+                "Formula imported into the Formula tab. The Builder does not read imported text, so its "
+                "terms are not changed.",
+                type="message",
+            )
 
         @render.download_button(filename="daisy_glm_predictions.csv")
         def glm_predictions_download():

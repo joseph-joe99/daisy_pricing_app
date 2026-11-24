@@ -4,6 +4,16 @@
 
 - **GLMs** are built from a formula (the default is in `daisy/data/glm_formula.csv`, and the GLMs tab takes a
   formula with one term per line). Terms use Patsy and Python syntax; the GLM engine is our own IRLS fit.
+- The GLMs tab's **Builder** tab builds the formula without typing it: drag features (or click them) into the model
+  terms, then choose each term's form: linear, categorical `C()`, B-spline `bs()`, natural cubic `cr()`, cyclic
+  `cc()`, polynomial, log, square root, square, clip to a minimum and maximum (`np.clip`), or centred `center()`.
+  A categorical term can also pick **selected levels**. Each selected level gets its own coefficient, the other levels
+  are grouped as `(other)`, and the first selected level is the baseline.
+- The **Formula** tab exports the formula as text (`glm_formula.txt`), one term per line. To import, choose a text
+  file with one term per line (`#` comments are allowed). The formula goes into the Formula box. The Builder does not
+  read imported text, so its terms stay as they were until you change them there.
+  Add interactions as `a:b`, `a*b` or `a/b`, and turn the intercept off. The formula is written to the **Formula**
+  tab as you build. Edits made directly in the Formula tab are not read back into the Builder.
 - **GBMs** are LightGBM models. Each build setting in the GBMs sidebar has a hover message explaining it, and the
   GBM parameters table shows the same messages. Monotonicity and interaction groups come from the feature
   specification.

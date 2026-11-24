@@ -19,4 +19,4 @@ dev = ["pytest", "scikit-learn"]
 include = ["daisy*"]
 
 [tool.setuptools.package-data]
-daisy = ["data/*", "images/*"]
+daisy = ["data/*", "images/*", "static/*"]
