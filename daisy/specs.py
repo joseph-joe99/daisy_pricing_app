@@ -5,6 +5,29 @@ import pandas as pd
 
 FEATURE_SPEC_NOT_MODELLING_VALID = {"train_test"}
 
+
+def ensure_overlays_valid(feature_spec: pd.DataFrame) -> pd.DataFrame:
+    """Add the ``overlays_valid`` column next to ``modelling_valid`` when a feature spec does not have it yet.
+
+    The new column starts as a copy of ``modelling_valid``, so a spec saved before the column existed keeps the same
+    features for the Overlays suggestions as it had for the models.
+    """
+    if "overlays_valid" in feature_spec.columns:
+        return feature_spec
+    out = feature_spec.copy()
+    values = out["modelling_valid"] if "modelling_valid" in out.columns else ""
+    position = list(out.columns).index("modelling_valid") + 1 if "modelling_valid" in out.columns else len(out.columns)
+    out.insert(position, "overlays_valid", values)
+    return out
+
+
+def overlays_valid_features(feature_spec: pd.DataFrame) -> set[str]:
+    """The features the feature specification marks ``overlays_valid = feature``: the only features Overlays suggestions use."""
+    if "overlays_valid" not in feature_spec.columns:
+        return set()
+    marked = feature_spec["overlays_valid"].fillna("").astype(str).str.strip().str.lower().eq("feature")
+    return set(feature_spec.loc[marked, "feature"].astype(str).str.strip())
+
 REQUIRED = {
     "feature": ["feature", "base_level", "min", "max", "interaction_grouping"],
     "kpi": [
@@ -41,6 +64,7 @@ def specification_template(
                 "monotonicity": "",
                 "interaction_grouping": "",
                 "modelling_valid": ["" if c in FEATURE_SPEC_NOT_MODELLING_VALID else "feature" for c in cols],
+                "overlays_valid": ["" if c in FEATURE_SPEC_NOT_MODELLING_VALID else "feature" for c in cols],
                 "bins": "",
                 "banding_type": "",
             }
@@ -94,6 +118,8 @@ def load_specification(
     x = x.fillna("")
     if not all(c in x.columns for c in REQUIRED[spec_type]):
         return specification_template(d, spec_type)
+    if spec_type == "feature":
+        x = ensure_overlays_valid(x)
     return x
 
 

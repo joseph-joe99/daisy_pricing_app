@@ -61,6 +61,8 @@ from .scoring import (
 )
 from .specs import (
     REQUIRED,
+    ensure_overlays_valid,
+    overlays_valid_features,
     feature_monotonicity,
     set_feature_monotonicity,
     feature_label,
@@ -93,6 +95,12 @@ from .overlay import (
 from .weights import WEIGHT_BASES, WEIGHT_BASIS_HELP, to_total_scale
 
 SPECIAL_COLS = {"train_test"}
+
+
+def _grid_height(reserved_px: int, minimum_px: int = 240) -> str:
+    """CSS height for a data grid that fills the window: the window height less ``reserved_px`` for the page above and
+    below the table, and never shorter than ``minimum_px``. The browser re-applies it when the window is resized."""
+    return f"max({minimum_px}px, calc(100vh - {reserved_px}px))"
 
 
 def _show(
@@ -133,6 +141,8 @@ def _validate_editor_spec(
     missing = [column for column in REQUIRED[spec_type] if column not in frame.columns]
     if missing:
         raise ValueError(f"{spec_type} specification is missing required columns: {', '.join(missing)}")
+    if spec_type == "feature":
+        frame = ensure_overlays_valid(frame)
     if spec_type in {"feature", "kpi"} and frame.empty:
         raise ValueError(f"{spec_type} specification must contain at least one row")
     if spec_type == "feature":
@@ -1455,7 +1465,7 @@ def make_app(
         def spec_feature_grid():
             """Editable grid of the feature specification, refreshed when the specifications are applied."""
             spec_version()
-            return render.DataGrid(feat_df, editable=True, height="500px")
+            return render.DataGrid(feat_df, editable=True, height=_grid_height(355))
 
         @render.ui
         def spec_kpi_editor():
@@ -2586,12 +2596,12 @@ def make_app(
         @render.data_frame
         def data_view():
             """Filterable grid of the first 2,000 rows of the data."""
-            return render.DataGrid(_show(dfull().head(2000)), filters=True, height="650px")
+            return render.DataGrid(_show(dfull().head(2000)), filters=True, height=_grid_height(250))
 
         @render.data_frame
         def col_summary():
             """Summary table of every data column."""
-            return render.DataGrid(_show(column_summary(dfull())), height="650px")
+            return render.DataGrid(_show(column_summary(dfull())), height=_grid_height(250))
 
         # ---------------- GLMs
         @render.ui
@@ -3422,10 +3432,16 @@ def make_app(
             model,
         ):
             """(modelled features, non-modelled features): the base model's features, then the other columns of the
-            data (without the response, weight and train_test)."""
-            modelled = _ranked_features(d0, model, family, model_features(family, model))  # most important first
+            data (without the response, weight and train_test). Only features the feature specification marks
+            overlays_valid = feature are offered, since the suggestions are calculated on those alone."""
+            valid = overlays_valid_features(feat_df)
+            modelled = [
+                f
+                for f in _ranked_features(d0, model, family, model_features(family, model))  # most important first
+                if f in valid
+            ]
             excluded = {response(), weight(), *NOT_NON_MODELLED}
-            others = [c for c in d0.columns if c not in set(modelled) and c not in excluded]
+            others = [c for c in d0.columns if c in valid and c not in set(modelled) and c not in excluded]
             return modelled, others
 
         @reactive.effect
@@ -3474,7 +3490,9 @@ def make_app(
             modelled, others = overlay_feature_groups(family, model)
             features = modelled + others
             if not features:
-                ui.notification_show("The base model has no features in this data.", type="warning")
+                ui.notification_show(
+                    "No features are marked overlays_valid = feature in the feature specification.", type="warning"
+                )
                 return
             response_name = response_for(family, model)
             try:

@@ -2,7 +2,7 @@
 
 Daisy reads three specification files: KPI, filter and feature. They are csv files in the same format as the app
 (examples are in `daisy/data/`). If a feature specification is not given, the app builds one template with one row
-per data column, a blank label (the feature name is shown instead) and `modelling_valid = feature` for every column
+per data column, a blank label (the feature name is shown instead) and `modelling_valid = feature` and `overlays_valid = feature` for every column
 except `train_test`.
 
 ## Feature specification
@@ -17,6 +17,7 @@ except `train_test`.
 | `monotonicity` | `increasing` or `decreasing` for a GBM. Set it in Charts with Monotonicity, then Update specification. |
 | `interaction_grouping` | Features in the same group may interact in a GBM. |
 | `modelling_valid` | `feature` to use the column in models; blank or other values leave it out. |
+| `overlays_valid` | `feature` to offer the column in the Overlays tab and calculate its suggestions; blank or other values leave it out. A spec saved without this column gets it as a copy of `modelling_valid`. |
 | `banding_type` | Optional. `capped` limits the values to `min` and `max` for modelling; `bins` splits the range into `bins` equal bins for modelling. Blank uses the feature as it is. |
 | `bins` | Optional. The number of bins when `banding_type` is `bins`. |
 
